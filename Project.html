@@ -186,7 +186,7 @@ rfFit &lt;- train(classe ~ ., method = &quot;rf&quot;, data = training, importan
 <pre class="r"><code>ImpVar&lt;-varImp(rfFit$finalModel, useModel = TRUE, nonpara = TRUE, scale = TRUE)
 w&lt;-order(-apply(ImpVar,1,mean))
 Var&lt;-dimnames(ImpVar)[[1]][head(w)]</code></pre>
-<p>In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally during the run. In this case, the out-of-bag (oob) error estimate which is also the out of sample error rate is 0.7%. The six most important predictors are <code>Var</code>.</p>
+<p>In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally during the run. In this case, the out-of-bag (oob) error estimate which is also the out of sample error rate is 0.7%. The six most important predictors are roll_belt, pitch_forearm,  magnet_dumbbell_y,magnet_dumbbell_z,yaw_belt and pitch_belt.</p>
 <p>Since error rate of the random forest model is very low, we choose the random forest model.</p>
 </div>
 <div id="prediction" class="section level2">

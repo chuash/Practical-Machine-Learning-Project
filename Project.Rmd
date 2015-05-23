@@ -1,0 +1,93 @@
+---
+title: 'Practical Machine Learning Project - Predicting how well an activity would be performed '
+output: html_document
+---
+## Synopsis  
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, my goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).  
+
+```{r library,messsage=FALSE,warning=FALSE}
+library("caret")
+library("rpart")
+library("knitr")
+```
+
+```{r setoptions, echo=TRUE}
+opts_chunk$set(echo=TRUE)
+```
+##  Data Preparation and Cleaning
+
+-  The training and testing data were first downloaded from the Coursera course site.Then they are read into R.
+```{r reading data}
+data<-read.csv("./train.csv",na.strings = c("NA",""))
+test<-read.csv("./test.csv",na.strings = c("NA",""))
+```
+-  After some quick data exploration using str(data), it is found that the dataset has many variables with high % of NAs, which might not make them suitable as predictors.So we attempt to check and remove variables with high proportion of NAs.
+```{r remove NA variables}
+x<-(colSums(!is.na(data)));summary(x)
+datanew<-data[,x>min(x)]
+```
+-  Then we check and remove zero covariates, if any.
+```{r remove zero covariates}
+nsv<-nearZeroVar(datanew,saveMetrics=TRUE)
+datanew<- datanew[, !nsv$nzv]
+```
+-  We also remove variables that will most likely be not useful for the model
+```{r}
+datanew<-datanew[,-c(1:6)]
+```
+- Lastly we try to check for correlated variables.
+```{r}
+M<-abs(cor(datanew[,-dim(datanew)[2]]))
+diag(M)<-0
+y<-which(M>0.8,arr.ind=T)
+z<-unique(dimnames(y)[[1]])
+```
+However, the "so-called" correlated variables do not appear to be so upon generating the 
+scatter plots for every single one of them. An example is as follows. Therefore, the "so-called" correlated variables are not removed.
+```{r}
+pairs(datanew[,head(z)])
+```
+
+##  Data Modeling
+This is clearly a classification problem so naturally we started by trying decision tree modeling. For the decision tree modelling,we use k-fold cross validation where k=10
+```{r}
+dtFit<-rpart(classe~.,method="class",data=datanew,control = rpart.control(cp=0.01, xval = 10))
+printcp(dtFit)
+```
+By theory, the out of sample(generalisation) error rate would be higher than the resubstitution error rate. For this case, the resubstitution error rate is 0.34148 
+x 0.71563 x 100 = 24.4% while the out of sample error rate is 0.36982 x 0.71563 x 100=  
+26.5%.
+
+The error rate for plain vanilla decision tree model is fairly high. Therefore, we proceed to try random forest which, fundamentally, is decision tree modeling but with bootstrap sampling and growth of multiple trees.
+```{r}
+set.seed(123)
+rfFit <- train(classe ~ ., method = "rf", data = training, importance = T)
+rfFit
+plot(rfFit, ylim = c(0.9, 1))
+print(rfFit$finalModel)
+ImpVar<-varImp(rfFit$finalModel, useModel = TRUE, nonpara = TRUE, scale = TRUE)
+w<-order(-apply(ImpVar,1,mean))
+Var<-dimnames(ImpVar)[[1]][head(w)]
+```
+In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally during the run. In this case, the out-of-bag (oob) error estimate which is also the out of sample error rate is 0.7%. The six most important predictors are `r Var`.
+
+Since error rate of the random forest model is very low, we choose the random forest model.
+
+## Prediction
+```{r}
+prediction <- as.character(predict(rfFit, test))
+```
+
+## Exporting  prediction files
+```{r}
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("./problem_id_", i, ".txt")
+                write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
+        }
+}
+pml_write_files(prediction)
+```
+
+
